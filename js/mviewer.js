@@ -1875,7 +1875,6 @@ mviewer = (function () {
 
       // if help popup only
       if (showHelp) {
-        //$("#help .modal-body").append('<ul style="padding-left:0">' + langitems.join("") + '</ul>');
         $("#lang-button, #lang-selector").addClass("enabled");
         $("#lang-body>ul").append(langitems.join(""));
         $("#lang-selector>ul").append(langitems.join(""));
@@ -1890,41 +1889,58 @@ mviewer = (function () {
 
         if (languages.length > 1) {
           // only make items hidden if there are multiple languages
-          //hide current lang mst and unhide new mst
-          $(".mv-translate").removeClass("active");
-          //selector to use depending if popup or modal
-          // check if  #popup-content inside .modal-panel is empty
-          var info_panel_selector_to_use = "#right-panel";
-          if (
-            $(".modal-panel #popup-content").html() &&
-            $(".modal-panel #popup-content").html().trim() !== ""
-          ) {
-            info_panel_selector_to_use = ".modal-panel";
-          }
-          // hide other languages slides
-          $(info_panel_selector_to_use)
-            .find(".carousel-inner")
-            .find("li.item")
-            .not(".mst_" + configuration.getLang())
-            .addClass("hidden-item")
-            .removeClass("item");
-          // show those of the new language
-          $(info_panel_selector_to_use)
-            .find(".carousel-inner")
-            .find("li.mst_" + $(this).attr("idlang"))
-            .addClass("item")
-            .removeClass("hidden-item");
-          // find inside div with id right-panel the div with class carousel-inner and hide all divs that contain item inside of it
-          $(info_panel_selector_to_use).find(".carousel-inner").find("li.item").hide();
 
-          // show the div that contains the clicked language in its class
-          $(info_panel_selector_to_use)
-            .find(".carousel-inner")
-            .find("li.item.mst_" + $(this).attr("idlang"))
-            .show();
-          //close panel if opened to trigger reload
-          $(info_panel_selector_to_use).removeClass("active");
-          // unselect point
+          //hide current lang mst and show new mst
+
+          // close lang selector
+          if (configuration.getConfiguration().mobile) {
+            $("#lang-popup").modal("hide");
+          } else {
+            $(".mv-translate").removeClass("active");
+          }
+
+          var available_info_panels = [];
+
+          var all_panels_selectors = ["#right-panel", "#bottom-panel", "#modal-panel"];
+          all_panels_selectors.forEach((selector) => {
+            full_selector = selector + " .popup-content";
+            if ($(full_selector).html() && $(full_selector).html().trim() !== "") {
+              // add panel selector to the array
+              available_info_panels.push(selector);
+            }
+          });
+          // in case no panel selector  found, defaults to right panel
+          if (available_info_panels.length === 0) {
+            available_info_panels = ["#right-panel"];
+          }
+
+          // apply translations to all panels
+          available_info_panels.forEach((info_panel_selector_to_use) => {
+            // hide other languages slides
+            $(info_panel_selector_to_use)
+              .find(".carousel-inner")
+              .find("li.item")
+              .not(".mst_" + configuration.getLang())
+              .addClass("hidden-item")
+              .removeClass("item");
+            // show those of the new language
+            $(info_panel_selector_to_use)
+              .find(".carousel-inner")
+              .find("li.mst_" + $(this).attr("idlang"))
+              .addClass("item")
+              .removeClass("hidden-item");
+            // find inside div with id right-panel the div with class carousel-inner and hide all divs that contain item inside of it
+            $(info_panel_selector_to_use).find(".carousel-inner").find("li.item").hide();
+
+            // show the div that contains the clicked language in its class
+            $(info_panel_selector_to_use)
+              .find(".carousel-inner")
+              .find("li.item.mst_" + $(this).attr("idlang"))
+              .show();
+            //close panel if opened to trigger reload
+            $(info_panel_selector_to_use).removeClass("active");
+          });
+
           $("#mv_marker").hide();
         }
       });
@@ -2023,15 +2039,14 @@ mviewer = (function () {
             // debug mode, used to see the generated i18n ids to create the i18n json dictionnary
             // dont show i18n keys for translations already provided by mviewer
             $(el).text($(el).attr("i18n"));
-          } else {
-            if (!(tr === $(el).attr("i18n"))) {
-              // if tranlsation exists
-              $(el).text(tr);
-            } // else do nothing, keep the innertext already there
-          }
+          } else if (!(tr === $(el).attr("i18n"))) {
+            // if tranlsation exists
+            $(el).text(tr);
+          } // else do nothing, keep the innertext already there
         }
       });
     });
+
     _element.find("[data-content]").each((i, el) => {
       var content = $("<div></div>").append($(el).attr("data-content"));
       content.find("[i18n]").each((i, contentEl) => {
@@ -3509,9 +3524,39 @@ mviewer = (function () {
       animation = setInterval(play, 2000);
     },
 
-    setInfoPanelTitle: function (el, panel) {
-      var title = $(el).attr("data-original-title");
+    setInfoPanelTitle: function (el, panel, new_i18n) {
+      // default
+      var layer_picker_container_selector = "#sidebar-wrapper";
+      // mobile
+      if (configuration.getConfiguration().mobile) {
+        layer_picker_container_selector = "#thematic-modal";
+      }
+
+      layer_picker_container = $(layer_picker_container_selector);
+
+      if (layer_picker_container.length === 0) {
+        throw new Error("sidebar-wrapper not found");
+      }
+      // get the corresponding layer from i18n id
+      const layer_title_el = layer_picker_container.find(`[i18n="${new_i18n}"]`);
+      if (layer_title_el.length > 1) {
+        throw new Error("same i18n id has been used in more than one layer");
+      } else if (layer_title_el.length === 0) {
+        throw new Error("No element found with the given i18n id");
+      }
+
+      var title = layer_title_el.text();
       $("#" + panel + " .mv-header h5").text(title);
+
+      // also update the panel's title's i18n attribute
+      if (new_i18n) {
+        $("#" + panel + " .mv-header h5").attr("i18n", new_i18n);
+      }
+
+      // update the title of the element and its parent too
+      $(el).parent().attr("title", title);
+      $(el).attr("data-original-title", title);
+      $(el).attr("title", title);
     },
 
     nextBackgroundLayer: function () {
